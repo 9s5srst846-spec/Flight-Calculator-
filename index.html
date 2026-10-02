@@ -1,0 +1,2541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Flight Planning Calculators</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --accent: #f0a500;
+    --accent2: #e05c00;
+    --green: #3fb950;
+    --red: #f85149;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --input-bg: #0d1117;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    overflow-x: hidden;
+  }
+
+  body {
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ===== Home screen (top-level phase selector) ===== */
+  .home-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    padding: 24px;
+    gap: 18px;
+  }
+
+  .home-header {
+    text-align: center;
+    margin-bottom: 22px;
+  }
+
+  .home-header .logo-big {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+
+  .home-header h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .home-header .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  .phase-oval {
+    width: 100%;
+    max-width: 320px;
+    padding: 22px 24px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #1c2230, #12161d);
+    border: 2px solid var(--accent);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .phase-oval:active { transform: scale(0.97); background: #1a2035; }
+
+  .phase-oval .phase-sub {
+    display: block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 5px;
+    text-transform: none;
+  }
+
+  /* ===== Section shell (En Route / Post Flight — normal document flow) ===== */
+  .section {
+    display: none;
+    min-height: 100vh;
+    padding: 20px 20px 40px;
+  }
+
+  .section.active { display: block; }
+
+  .section-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .back-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .back-btn:active { background: #1a2035; }
+
+  .section-title {
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ===== En Route menu ===== */
+  .enroute-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .enroute-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .enroute-card:active { background: #1a2035; border-color: var(--accent); }
+
+  .enroute-card svg {
+    width: 26px;
+    height: 26px;
+    stroke: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .enroute-card .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  .enroute-card .card-sub {
+    font-size: 10.5px;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    margin-top: 2px;
+  }
+
+  .enroute-calc { display: none; }
+  .enroute-calc.active { display: block; }
+
+  /* Radio-style mode selector (e.g. "solve for" toggles) */
+  .mode-select {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 9px 4px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+    text-align: center;
+    border-radius: 5px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mode-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #1a2035;
+  }
+
+  /* ===== Page content wrapper (used inside .enroute-calc for both
+     Pre Flight and En Route calculators — plain block, no special
+     positioning; the section itself scrolls the normal document way) ===== */
+  .page {
+    padding: 0;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 14px;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    line-height: 1.6;
+    white-space: pre-line;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  /* Aircraft selector row */
+  .aircraft-select-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  label.section-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  select, input[type="number"] {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  select:focus, input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+
+  select {
+    width: auto;
+    min-width: 200px;
+    cursor: pointer;
+  }
+
+  /* Main grid */
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .panel-header {
+    background: #1f2937;
+    padding: 10px 16px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* Table — fixed layout with explicit column widths (set via <col> in
+     the markup) so both W&B tables fit the screen width without
+     needing horizontal scroll. */
+  table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+
+  th {
+    background: #1a1f28;
+    padding: 6px 5px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    overflow-wrap: break-word;
+  }
+
+  td {
+    padding: 7px 5px;
+    border-bottom: 1px solid #1c2130;
+    font-size: 12px;
+    vertical-align: middle;
+    overflow-wrap: break-word;
+  }
+
+  td.label {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  td.arm {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  td.moment, td.weight-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    text-align: right;
+    color: var(--accent);
+  }
+
+  td input[type="number"] {
+    border: 1px solid #2a3140;
+    padding: 5px 4px;
+    font-size: 12px;
+    width: 100%;
+  }
+
+  td input[type="number"]:focus { border-color: var(--accent); }
+
+  /* Summary rows */
+  tr.summary td {
+    background: #1a2035;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--text);
+    border-top: 2px solid var(--border);
+    border-bottom: 2px solid var(--border);
+    padding: 9px 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  tr.summary td.moment {
+    color: var(--green);
+    font-size: 12px;
+  }
+
+  tr.warning td {
+    background: #2a1515;
+  }
+
+  /* Results panel */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .result-box {
+    background: var(--panel);
+    padding: 16px 10px;
+    text-align: center;
+  }
+
+  .result-box .r-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .result-box .r-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .result-box .r-unit {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .result-box.ok .r-value { color: var(--green); }
+  .result-box.warn .r-value { color: var(--red); }
+  .result-box.big .r-value { font-size: 30px; }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    border-top: 1px solid var(--border);
+  }
+
+  .status-bar.go { background: #0d2a18; color: var(--green); }
+  .status-bar.nogo { background: #2a0d0d; color: var(--red); }
+  .status-bar.empty { background: #1a1f28; color: var(--muted); }
+
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .fuel-note {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 8px 12px 12px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .info-chip {
+    display: inline-block;
+    background: #1f2937;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .info-chip span { color: var(--accent); }
+
+  optgroup { color: var(--muted); font-size: 11px; }
+
+  /* Simple form styling reused on fuel & altitude pages */
+  .simple-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field-row input {
+    font-size: 20px;
+    padding: 12px 14px;
+  }
+
+  .big-result {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 28px 20px;
+    text-align: center;
+  }
+
+  .big-result .r-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .big-result .r-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 44px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .big-result .r-unit {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 1px;
+  }
+
+  .formula-note {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    text-align: center;
+    padding: 4px 8px;
+  }
+
+  .formula-note.warn {
+    color: var(--red);
+  }
+</style>
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flight Plan">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="./icons/icon-192.png">
+<style>
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  .home-screen { height: auto; min-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .app-controls { text-align:center; max-width:320px; font:13px system-ui,sans-serif; color:var(--muted); line-height:1.6; }
+  .app-controls button { border:1px solid var(--border); border-radius:12px; padding:10px 18px; background:var(--panel); color:var(--text); font:inherit; cursor:pointer; }
+  #appInstallHelp { margin-top:10px; }
+  @media (max-width:600px) { input[type="number"], input[type="time"], select { font-size:16px; } }
+</style>
+<script src="./app.js" defer></script>
+</head>
+<body>
+
+<!-- ================= HOME: PHASE OF FLIGHT SELECTOR ================= -->
+<div class="home-screen" id="homeScreen">
+  <div class="home-header">
+    <div class="logo-big">FLIGHT PLANNING SUITE</div>
+    <h1>SELECT PHASE</h1>
+    <div class="subtitle">C172 / C182 · GROUND SCHOOL AERO</div>
+  </div>
+  <button class="phase-oval" onclick="showSection('preflight')">
+    PRE FLIGHT
+    <span class="phase-sub">FUEL · W&amp;B · PRESSURE ALT · PERFORMANCE</span>
+  </button>
+  <button class="phase-oval" onclick="showSection('enroute')">
+    EN ROUTE
+    <span class="phase-sub">E6B NAVIGATION &amp; PLANNING</span>
+  </button>
+  <button class="phase-oval" onclick="showSection('postflight')">
+    POST FLIGHT
+    <span class="phase-sub">HOBBS &amp; FLIGHT TIME</span>
+  </button>
+<div class="app-controls">
+    <div id="appStatus" role="status" aria-live="polite">Preparing offline access…</div>
+    <button type="button" id="appInstallButton">Install app</button>
+    <p id="appInstallHelp" hidden></p>
+  </div>
+</div>
+
+<!-- ================= PRE FLIGHT SECTION ================= -->
+<div class="section" id="preflightSection">
+  <div class="section-topbar">
+    <div class="topbar-left">
+      <button class="back-btn" id="preflightHomeBtn" onclick="showHome()">← HOME</button>
+      <div class="section-title">PRE FLIGHT</div>
+    </div>
+    <button class="back-btn" id="preflightBack" onclick="showPreflightMenu()" style="display:none;">← PRE FLIGHT</button>
+  </div>
+
+  <!-- Menu of 4 pre-flight calculators -->
+  <div class="enroute-menu" id="preflightMenu">
+    <div class="enroute-card" onclick="showPreflightCalc('calc-pf-fuel')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/>
+        <path d="M3 22h10"/>
+        <path d="M13 9h2.5a1.5 1.5 0 0 1 1.5 1.5V13a1 1 0 0 0 2 0V7.83a1 1 0 0 0-.29-.71L17 5.5"/>
+        <line x1="6" y1="10" x2="10" y2="10"/>
+      </svg>
+      <div><div class="card-title">Fuel Weight</div><div class="card-sub">Gallons to pounds (1 USG = 6 lbs)</div></div>
+    </div>
+    <div class="enroute-card" onclick="showPreflightCalc('calc-wb')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="2" x2="12" y2="20"/>
+        <path d="M12 5l-7 3"/>
+        <path d="M12 5l7 3"/>
+        <path d="M2 8l3 6a3 3 0 0 0 6 0z"/>
+        <path d="M14 8l3 6a3 3 0 0 0 6 0z"/>
+        <line x1="7" y1="21" x2="17" y2="21"/>
+      </svg>
+      <div><div class="card-title">Weight &amp; Balance</div><div class="card-sub">C172 / C182 · ZFW, ramp, GTOW, landing</div></div>
+    </div>
+    <div class="enroute-card" onclick="showPreflightCalc('calc-pa')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 20l6-11 4 6.5L16.5 7 22 20z"/>
+        <line x1="2" y1="20" x2="22" y2="20"/>
+      </svg>
+      <div><div class="card-title">Pressure Altitude</div><div class="card-sub">Field elevation &amp; altimeter setting</div></div>
+    </div>
+    <div class="enroute-card" onclick="showPreflightCalc('calc-perf')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="7" width="16" height="10" rx="1"/>
+        <line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="2.2 2.2"/>
+      </svg>
+      <div><div class="card-title">Takeoff &amp; Landing Performance</div><div class="card-sub">Short field distances, C172N / C172P</div></div>
+    </div>
+  </div>
+
+  <!-- ================= FUEL WEIGHT ================= -->
+  <div class="enroute-calc" id="calc-pf-fuel">
+  <div class="page" id="page-0">
+    <header>
+      <div class="logo">FUEL<br>WEIGHT</div>
+      <div>
+        <h1><span>FUEL</span> CALCULATOR</h1>
+        <div class="subtitle">1 USG = 6 LBS AVGAS</div>
+      </div>
+    </header>
+
+    <div class="simple-form">
+      <div class="field-row">
+        <label class="section-label">Fuel Quantity (US Gallons)</label>
+        <input type="number" id="fuelGal" min="0" step="0.1" placeholder="0" oninput="calcFuelPage()">
+      </div>
+
+      <div class="big-result">
+        <div class="r-label">Fuel Weight</div>
+        <div class="r-value" id="fuelLbsOut">—</div>
+        <div class="r-unit">LBS</div>
+      </div>
+
+      <div class="formula-note">▸ Weight (lbs) = Gallons × 6</div>
+
+      <button id="transferBtn" onclick="transferFuelToWB()" disabled
+        style="background:var(--accent);color:#1a1206;border:none;border-radius:6px;
+               padding:14px;font-family:'Share Tech Mono',monospace;font-size:13px;
+               letter-spacing:2px;text-transform:uppercase;font-weight:700;cursor:pointer;
+               opacity:0.4;transition:opacity 0.2s;">
+        Use This Weight in W&B →
+      </button>
+    </div>
+  </div>
+  </div>
+
+  <!-- ================= WEIGHT & BALANCE ================= -->
+  <div class="enroute-calc" id="calc-wb">
+  <div class="page" id="page-1">
+    <header>
+      <div class="logo">WEIGHT &<br>BALANCE</div>
+      <div>
+        <h1><span>W&B</span> CALCULATOR</h1>
+        <div class="subtitle">C172 / C182 · GROUND SCHOOL AERO</div>
+      </div>
+    </header>
+
+    <div class="aircraft-select-row">
+      <div>
+        <label class="section-label">Select Aircraft</label>
+        <select id="aircraftSelect" onchange="onAircraftChange()">
+          <option value="">— Choose Aircraft —</option>
+          <optgroup label="C172">
+            <option value="FBBN">FBBN (N)</option>
+            <option value="FIAH">FIAH (N)</option>
+            <option value="GYDE">GYDE (N)</option>
+            <option value="FRZR">FRZR (N~)</option>
+            <option value="GSTC">GSTC (N*)</option>
+            <option value="GYZA">GYZA (N*)</option>
+            <option value="FDAJ">FDAJ (P)</option>
+            <option value="FWPV">FWPV (P)</option>
+            <option value="GQCL">GQCL (P)</option>
+            <option value="GXUV">GXUV (N)</option>
+          </optgroup>
+          <optgroup label="C182">
+            <option value="FIAZ">FIAZ (T)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div id="acInfo" style="padding-top:22px;"></div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-header">// WEIGHT INPUTS</div>
+        <div class="table-wrap">
+        <table>
+          <colgroup>
+            <col style="width:37%">
+            <col style="width:13%">
+            <col style="width:24%">
+            <col style="width:26%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align:center;">ARM</th>
+              <th style="text-align:right;">Weight</th>
+              <th style="text-align:right;">Moment</th>
+            </tr>
+          </thead>
+          <tbody id="inputBody">
+            <tr><td colspan="4" style="color:var(--muted);padding:20px;text-align:center;font-size:13px;letter-spacing:1px;">SELECT AN AIRCRAFT TO BEGIN</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="fuel-note" id="fuelNote"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">// WEIGHT SUMMARY</div>
+        <div class="table-wrap">
+        <table>
+          <colgroup>
+            <col style="width:36%">
+            <col style="width:24%">
+            <col style="width:14%">
+            <col style="width:26%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th style="text-align:right;">Weight</th>
+              <th style="text-align:center;">Arm</th>
+              <th style="text-align:right;">Moment</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody">
+            <tr><td colspan="4" style="color:var(--muted);padding:20px;text-align:center;font-size:13px;letter-spacing:1px;">—</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">// RESULTS</div>
+        <div class="results-grid" id="resultsGrid">
+          <div class="result-box"><div class="r-label">ZFW</div><div class="r-value" id="r-zfw">—</div><div class="r-unit">lbs</div></div>
+          <div class="result-box"><div class="r-label">ZFW Arm</div><div class="r-value" id="r-zfw-arm">—</div><div class="r-unit">in</div></div>
+          <div class="result-box"><div class="r-label">Ramp Weight</div><div class="r-value" id="r-ramp">—</div><div class="r-unit">lbs</div></div>
+          <div class="result-box"><div class="r-label">Ramp Arm</div><div class="r-value" id="r-ramp-arm">—</div><div class="r-unit">in</div></div>
+          <div class="result-box"><div class="r-label">GTOW</div><div class="r-value" id="r-gtow">—</div><div class="r-unit">lbs</div></div>
+          <div class="result-box"><div class="r-label">GTOW Arm (CG)</div><div class="r-value" id="r-cg">—</div><div class="r-unit">in</div></div>
+          <div class="result-box"><div class="r-label">Landing Weight</div><div class="r-value" id="r-land">—</div><div class="r-unit">lbs</div></div>
+          <div class="result-box"><div class="r-label">Landing Arm</div><div class="r-value" id="r-land-arm">—</div><div class="r-unit">in</div></div>
+          <div class="result-box"><div class="r-label">Max Gross Weight</div><div class="r-value" id="r-max">—</div><div class="r-unit">lbs</div></div>
+        </div>
+        <div class="status-bar empty" id="statusBar">
+          <div class="dot"></div>
+          AWAITING DATA
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ================= PRESSURE ALTITUDE ================= -->
+  <div class="enroute-calc" id="calc-pa">
+  <div class="page" id="page-2">
+    <header>
+      <div class="logo">PRESSURE<br>ALTITUDE</div>
+      <div>
+        <h1><span>PRESS</span> ALT CALCULATOR</h1>
+        <div class="subtitle">TAKEOFF & LANDING PERFORMANCE</div>
+      </div>
+    </header>
+
+    <div class="simple-form">
+      <div class="field-row">
+        <label class="section-label">Field Elevation (ft)</label>
+        <input type="number" id="fieldElev" step="1" value="3940" oninput="calcAltPage()">
+      </div>
+
+      <div class="field-row">
+        <label class="section-label">Current Altimeter Setting (inHg)</label>
+        <input type="number" id="altimeterSetting" step="0.01" placeholder="29.92" oninput="calcAltPage()">
+      </div>
+
+      <div class="big-result">
+        <div class="r-label">Pressure Altitude</div>
+        <div class="r-value" id="paOut">—</div>
+        <div class="r-unit">FT</div>
+      </div>
+
+      <div class="formula-note">▸ PA = Field Elevation + (29.92 − Altimeter Setting) × 1000</div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ================= TAKEOFF & LANDING PERFORMANCE ================= -->
+  <div class="enroute-calc" id="calc-perf">
+  <div class="page" id="page-3">
+    <header>
+      <div class="logo">TAKEOFF &<br>LANDING</div>
+      <div>
+        <h1><span>PERF</span> CALCULATOR</h1>
+        <div class="subtitle" id="perfSubtitle">SHORT FIELD TECHNIQUE</div>
+      </div>
+    </header>
+
+    <div class="aircraft-select-row">
+      <div>
+        <label class="section-label">Aircraft Model</label>
+        <select id="perfModel" onchange="onPerfModelChange()">
+          <option value="N">C172N</option>
+          <option value="P">C172P</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- TAKEOFF -->
+      <div class="panel">
+        <div class="panel-header">// TAKEOFF DISTANCE — SHORT FIELD</div>
+        <div style="padding:16px;">
+          <div class="simple-form">
+            <div class="field-row">
+              <label class="section-label">Takeoff Weight (lbs) — GTOW, not basic empty weight</label>
+              <input type="number" id="toWeight" step="1" placeholder="" oninput="calcTakeoff()">
+            </div>
+            <div class="field-row">
+              <label class="section-label">Pressure Altitude (ft)</label>
+              <input type="number" id="toPA" step="1" placeholder="e.g. 3940" oninput="calcTakeoff()">
+            </div>
+            <div class="field-row">
+              <label class="section-label">Outside Air Temp (°C)</label>
+              <input type="number" id="toTemp" step="1" placeholder="e.g. 22" oninput="calcTakeoff()">
+            </div>
+            <div class="field-row">
+              <label class="section-label">Wind Component (kt) — headwind + / tailwind −</label>
+              <input type="number" id="toWind" step="1" value="0" oninput="calcTakeoff()">
+            </div>
+            <div class="field-row">
+              <label class="section-label">Runway Surface</label>
+              <select id="toSurface" onchange="calcTakeoff()">
+                <option value="paved">Paved</option>
+                <option value="grass">Dry Grass</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="results-grid" style="margin-top:16px;">
+            <div class="result-box big"><div class="r-label">Ground Roll</div><div class="r-value" id="toRoll">—</div><div class="r-unit">FT</div></div>
+            <div class="result-box big"><div class="r-label">Total to Clear 50ft</div><div class="r-value" id="toTotal">—</div><div class="r-unit">FT</div></div>
+          </div>
+          <div class="formula-note" id="toNote">▸ POH Fig 5-4</div>
+        </div>
+      </div>
+
+      <!-- LANDING -->
+      <div class="panel">
+        <div class="panel-header">// LANDING DISTANCE — SHORT FIELD</div>
+        <div style="padding:16px;">
+          <div class="simple-form">
+            <div class="field-row">
+              <label class="section-label">Pressure Altitude (ft)</label>
+              <input type="number" id="ldPA" step="1" placeholder="e.g. 3940" oninput="calcLanding()">
+            </div>
+            <div class="field-row">
+              <label class="section-label">Outside Air Temp (°C)</label>
+              <input type="number" id="ldTemp" step="1" placeholder="e.g. 22" oninput="calcLanding()">
+            </div>
+            <div class="field-row">
+              <label class="section-label">Wind Component (kt) — headwind + / tailwind −</label>
+              <input type="number" id="ldWind" step="1" value="0" oninput="calcLanding()">
+            </div>
+            <div class="field-row">
+              <label class="section-label">Runway Surface</label>
+              <select id="ldSurface" onchange="calcLanding()">
+                <option value="paved">Paved</option>
+                <option value="grass">Dry Grass</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="results-grid" style="margin-top:16px;">
+            <div class="result-box big"><div class="r-label">Ground Roll</div><div class="r-value" id="ldRoll">—</div><div class="r-unit">FT</div></div>
+            <div class="result-box big"><div class="r-label">Total to Clear 50ft</div><div class="r-value" id="ldTotal">—</div><div class="r-unit">FT</div></div>
+          </div>
+          <div class="formula-note" id="ldNote">▸ POH Fig 5-10</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div>
+<!-- ================= /PRE FLIGHT SECTION ================= -->
+
+<!-- ================= EN ROUTE SECTION ================= -->
+<div class="section" id="enrouteSection">
+  <div class="section-topbar">
+    <div class="topbar-left">
+      <button class="back-btn" id="enrouteHomeBtn" onclick="showHome()">← HOME</button>
+      <div class="section-title">EN ROUTE</div>
+    </div>
+    <button class="back-btn" id="enrouteBack" onclick="showEnrouteMenu()" style="display:none;">← EN ROUTE</button>
+  </div>
+
+  <!-- Menu of 8 E6B calculators -->
+  <div class="enroute-menu" id="enrouteMenu">
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-tsd')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/><path d="M9 2h6"/><path d="M12 2v2"/></svg>
+      <div><div class="card-title">Time-Speed-Distance</div><div class="card-sub">Solve for time, speed, or distance</div></div>
+    </div>
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-fuel')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 22h10"/><path d="M13 9h2.5a1.5 1.5 0 0 1 1.5 1.5V13a1 1 0 0 0 2 0V7.83a1 1 0 0 0-.29-.71L17 5.5"/><line x1="6" y1="10" x2="10" y2="10"/></svg>
+      <div><div class="card-title">Fuel Planning</div><div class="card-sub">Endurance, fuel required, reserve remaining</div></div>
+    </div>
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-tas')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/><path d="M12 12l4-2.5"/><path d="M12 8v.01"/></svg>
+      <div><div class="card-title">True Airspeed</div><div class="card-sub">CAS corrected for altitude &amp; temperature</div></div>
+    </div>
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-wind')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4.5A2.5 2.5 0 1 1 12 7H2"/><path d="M13.5 19.5A2.5 2.5 0 1 0 16 17H2"/><path d="M17.5 8.5A2.5 2.5 0 1 1 20 11H2"/></svg>
+      <div><div class="card-title">Wind Correction</div><div class="card-sub">Wind correction angle &amp; ground speed</div></div>
+    </div>
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-da')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6"/><circle cx="12" cy="14" r="6"/><path d="M12 11v3l2 1.5"/></svg>
+      <div><div class="card-title">Density Altitude</div><div class="card-sub">From pressure altitude &amp; OAT</div></div>
+    </div>
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-altconv')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M7 8l5-5 5 5"/><path d="M7 16l5 5 5-5"/></svg>
+      <div><div class="card-title">Altitude Conversions</div><div class="card-sub">Feet ⇄ meters, flight level</div></div>
+    </div>
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-unitconv')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12"/></svg>
+      <div><div class="card-title">Unit Conversions</div><div class="card-sub">Distance, speed, weight, volume, temp</div></div>
+    </div>
+    <div class="enroute-card" onclick="showEnrouteCalc('calc-offcourse')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6l2-5 4 10 2-5h4"/></svg>
+      <div><div class="card-title">Off-Course Correction</div><div class="card-sub">1-in-60 rule — correction &amp; converging angle</div></div>
+    </div>
+  </div>
+
+  <!-- ===== 1. Time-Speed-Distance ===== -->
+  <div class="enroute-calc" id="calc-tsd">
+    <div class="panel">
+      <div class="panel-header">// TIME · SPEED · DISTANCE</div>
+      <div style="padding:16px;">
+        <div class="section-label" style="margin-bottom:8px;">Solve for:</div>
+        <div class="mode-select" id="tsdMode">
+          <div class="mode-btn active" data-mode="time" onclick="setTsdMode('time')">TIME</div>
+          <div class="mode-btn" data-mode="distance" onclick="setTsdMode('distance')">DISTANCE</div>
+          <div class="mode-btn" data-mode="speed" onclick="setTsdMode('speed')">SPEED</div>
+        </div>
+        <div class="simple-form" style="margin-top:12px;">
+          <div class="field-row" id="tsdDistanceRow">
+            <label class="section-label">Distance (NM)</label>
+            <input type="number" id="tsdDistance" step="0.1" oninput="calcTSD()">
+          </div>
+          <div class="field-row" id="tsdSpeedRow">
+            <label class="section-label">Ground Speed (KT) — not true airspeed</label>
+            <input type="number" id="tsdSpeed" step="0.1" oninput="calcTSD()">
+          </div>
+          <div class="field-row" id="tsdTimeRow">
+            <label class="section-label">Time (MIN)</label>
+            <input type="number" id="tsdTime" step="0.1" oninput="calcTSD()">
+          </div>
+        </div>
+        <div class="big-result" style="margin-top:14px;">
+          <div class="r-label" id="tsdResultLabel">Time</div>
+          <div class="r-value" id="tsdResult">—</div>
+          <div class="r-unit" id="tsdResultUnit">MIN</div>
+        </div>
+        <div class="formula-note">▸ Distance = Speed × Time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 2. Fuel Planning ===== -->
+  <div class="enroute-calc" id="calc-fuel">
+    <div class="panel">
+      <div class="panel-header">// FUEL PLANNING</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Distance (NM)</label>
+            <input type="number" id="fpDistance" step="0.1" oninput="calcFuelPlanning()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Ground Speed (KT)</label>
+            <input type="number" id="fpGS" step="0.1" oninput="calcFuelPlanning()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Fuel Burn Rate (GPH)</label>
+            <input type="number" id="fpBurn" step="0.1" oninput="calcFuelPlanning()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Fuel on Board (GAL)</label>
+            <input type="number" id="fpOnBoard" step="0.1" oninput="calcFuelPlanning()">
+          </div>
+        </div>
+        <div class="results-grid" style="margin-top:16px;">
+          <div class="result-box"><div class="r-label">Flight Time</div><div class="r-value" id="fpTime">—</div><div class="r-unit">HH:MM</div></div>
+          <div class="result-box"><div class="r-label">Fuel Required</div><div class="r-value" id="fpRequired">—</div><div class="r-unit">GAL</div></div>
+          <div class="result-box"><div class="r-label">Endurance</div><div class="r-value" id="fpEndurance">—</div><div class="r-unit">HH:MM</div></div>
+          <div class="result-box"><div class="r-label">Fuel Remaining</div><div class="r-value" id="fpRemaining">—</div><div class="r-unit">GAL</div></div>
+        </div>
+        <div class="formula-note" id="fpNote">▸ Fuel Required = Time × Burn Rate</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 3. True Airspeed ===== -->
+  <div class="enroute-calc" id="calc-tas">
+    <div class="panel">
+      <div class="panel-header">// TRUE AIRSPEED</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Calibrated Airspeed (KT)</label>
+            <input type="number" id="tasCAS" step="0.1" oninput="calcTAS()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Pressure Altitude (FT)</label>
+            <input type="number" id="tasPA" step="1" oninput="calcTAS()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Outside Air Temp (°C)</label>
+            <input type="number" id="tasOAT" step="1" oninput="calcTAS()">
+          </div>
+        </div>
+        <div class="results-grid" style="margin-top:16px;">
+          <div class="result-box big"><div class="r-label">True Airspeed</div><div class="r-value" id="tasResult">—</div><div class="r-unit">KT</div></div>
+          <div class="result-box"><div class="r-label">Density Altitude</div><div class="r-value" id="tasDA">—</div><div class="r-unit">FT</div></div>
+        </div>
+        <div class="formula-note">▸ TAS ≈ CAS × (1 + 2% per 1,000ft density altitude)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 4. Wind Correction ===== -->
+  <div class="enroute-calc" id="calc-wind">
+    <div class="panel">
+      <div class="panel-header">// WIND CORRECTION</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">True Course (°)</label>
+            <input type="number" id="wcTC" step="1" min="0" max="360" oninput="calcWindCorrection()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">True Airspeed (KT) — from True Airspeed calc, not IAS/CAS</label>
+            <input type="number" id="wcTAS" step="0.1" oninput="calcWindCorrection()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Wind Direction — FROM (°)</label>
+            <input type="number" id="wcWD" step="1" min="0" max="360" oninput="calcWindCorrection()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Wind Speed (KT)</label>
+            <input type="number" id="wcWS" step="0.1" oninput="calcWindCorrection()">
+          </div>
+        </div>
+        <div class="results-grid" style="margin-top:16px;">
+          <div class="result-box"><div class="r-label">Wind Corr. Angle</div><div class="r-value" id="wcWCA">—</div><div class="r-unit">°</div></div>
+          <div class="result-box"><div class="r-label">True Heading</div><div class="r-value" id="wcTH">—</div><div class="r-unit">°</div></div>
+          <div class="result-box big" style="grid-column: 1 / -1;"><div class="r-label">Ground Speed</div><div class="r-value" id="wcGS">—</div><div class="r-unit">KT</div></div>
+        </div>
+        <div class="formula-note" id="wcNote">▸ WCA = asin[(Wind Speed / TAS) × sin(WD − TC)]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 5. Density Altitude ===== -->
+  <div class="enroute-calc" id="calc-da">
+    <div class="panel">
+      <div class="panel-header">// DENSITY ALTITUDE</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Pressure Altitude (FT)</label>
+            <input type="number" id="daPA" step="1" oninput="calcDensityAlt()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Outside Air Temp (°C)</label>
+            <input type="number" id="daOAT" step="1" oninput="calcDensityAlt()">
+          </div>
+        </div>
+        <div class="big-result" style="margin-top:14px;">
+          <div class="r-label">Density Altitude</div>
+          <div class="r-value" id="daResult">—</div>
+          <div class="r-unit">FT</div>
+        </div>
+        <div class="formula-note" id="daNote">▸ DA = PA + [120 × (OAT − ISA Temp)]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 6. Altitude Conversions ===== -->
+  <div class="enroute-calc" id="calc-altconv">
+    <div class="panel">
+      <div class="panel-header">// ALTITUDE CONVERSIONS</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Feet</label>
+            <input type="number" id="altFeet" step="1" oninput="calcAltConv('feet')">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Meters</label>
+            <input type="number" id="altMeters" step="0.1" oninput="calcAltConv('meters')">
+          </div>
+        </div>
+        <div class="big-result" style="margin-top:14px;">
+          <div class="r-label">Flight Level (÷100)</div>
+          <div class="r-value" id="altFL">—</div>
+          <div class="r-unit">FL</div>
+        </div>
+        <div class="formula-note">▸ 1 ft = 0.3048 m</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 7. Unit Conversions ===== -->
+  <div class="enroute-calc" id="calc-unitconv">
+    <div class="panel">
+      <div class="panel-header">// UNIT CONVERSIONS</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Category</label>
+            <select id="ucCategory" onchange="onUnitCategoryChange()">
+              <option value="distance">Distance</option>
+              <option value="speed">Speed</option>
+              <option value="weight">Weight</option>
+              <option value="volume">Volume</option>
+              <option value="temp">Temperature</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label class="section-label">From</label>
+            <input type="number" id="ucFromValue" step="any" oninput="calcUnitConv()">
+            <select id="ucFromUnit" onchange="calcUnitConv()" style="margin-top:8px;"></select>
+          </div>
+          <div style="text-align:center;">
+            <button class="back-btn" onclick="swapUnitConv()">⇅ SWAP</button>
+          </div>
+          <div class="field-row">
+            <label class="section-label">To</label>
+            <select id="ucToUnit" onchange="calcUnitConv()"></select>
+          </div>
+        </div>
+        <div class="big-result" style="margin-top:14px;">
+          <div class="r-label">Result</div>
+          <div class="r-value" id="ucResult">—</div>
+          <div class="r-unit" id="ucResultUnit"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 8. Off-Course Correction ===== -->
+  <div class="enroute-calc" id="calc-offcourse">
+    <div class="panel">
+      <div class="panel-header">// OFF-COURSE CORRECTION</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Distance Flown (NM)</label>
+            <input type="number" id="ocFlown" step="0.1" oninput="calcOffCourse()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Off-Course Distance (NM) — how far off track right now</label>
+            <input type="number" id="ocError" step="0.1" oninput="calcOffCourse()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Distance Remaining (NM) — optional</label>
+            <input type="number" id="ocRemaining" step="0.1" oninput="calcOffCourse()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Current Heading (°) — optional</label>
+            <input type="number" id="ocHeading" step="1" min="0" max="360" oninput="calcOffCourse()">
+          </div>
+        </div>
+        <div class="results-grid" style="margin-top:16px;">
+          <div class="result-box"><div class="r-label">To Parallel Course</div><div class="r-value" id="ocParallel">—</div><div class="r-unit">°</div></div>
+          <div class="result-box"><div class="r-label">To Converge at Dest.</div><div class="r-value" id="ocConverge">—</div><div class="r-unit">°</div></div>
+          <div class="result-box big"><div class="r-label">Total Correction</div><div class="r-value" id="ocTotal">—</div><div class="r-unit">°</div></div>
+          <div class="result-box"><div class="r-label">New Heading</div><div class="r-value" id="ocNewHeading">—</div><div class="r-unit">°</div></div>
+        </div>
+        <div class="formula-note">▸ 1-in-60 rule: Correction° ≈ 60 × (Error ÷ Distance)</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- ================= /EN ROUTE SECTION ================= -->
+
+<!-- ================= POST FLIGHT SECTION ================= -->
+<div class="section" id="postflightSection">
+  <div class="section-topbar">
+    <div class="topbar-left">
+      <button class="back-btn" id="postflightHomeBtn" onclick="showHome()">← HOME</button>
+      <div class="section-title">POST FLIGHT</div>
+    </div>
+    <button class="back-btn" id="postflightBack" onclick="showPostflightMenu()" style="display:none;">← POST FLIGHT</button>
+  </div>
+
+  <!-- Menu of post-flight calculators -->
+  <div class="enroute-menu" id="postflightMenu">
+    <div class="enroute-card" onclick="showPostflightCalc('calc-hobbs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 18a8 8 0 0 1 16 0"/>
+        <path d="M4 18h16"/>
+        <path d="M12 18V9"/>
+        <path d="M12 18l4-4"/>
+      </svg>
+      <div><div class="card-title">Hobbs Time</div><div class="card-sub">Hobbs Out &amp; In → time flown</div></div>
+    </div>
+    <div class="enroute-card" onclick="showPostflightCalc('calc-tft')">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 7v5l3.5 2"/>
+      </svg>
+      <div><div class="card-title">Total Flight Time</div><div class="card-sub">Departure &amp; arrival clock times → logbook hours</div></div>
+    </div>
+  </div>
+
+  <!-- ===== Hobbs Time ===== -->
+  <div class="enroute-calc" id="calc-hobbs">
+    <div class="panel">
+      <div class="panel-header">// HOBBS TIME</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Hobbs Out (start reading)</label>
+            <input type="number" id="hobbsOut" step="0.1" placeholder="e.g. 1234.5" oninput="calcHobbsTime()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Hobbs In (end reading)</label>
+            <input type="number" id="hobbsIn" step="0.1" placeholder="e.g. 1236.8" oninput="calcHobbsTime()">
+          </div>
+        </div>
+        <div class="big-result" style="margin-top:14px;">
+          <div class="r-label">Hobbs Time</div>
+          <div class="r-value" id="hobbsResult">—</div>
+          <div class="r-unit">HOURS</div>
+        </div>
+        <div class="formula-note" id="hobbsNote">▸ Hobbs Time = Hobbs In − Hobbs Out</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Total Flight Time ===== -->
+  <div class="enroute-calc" id="calc-tft">
+    <div class="panel">
+      <div class="panel-header">// TOTAL FLIGHT TIME</div>
+      <div style="padding:16px;">
+        <div class="simple-form">
+          <div class="field-row">
+            <label class="section-label">Departure Time (Out)</label>
+            <input type="time" id="tftOut" oninput="calcTotalFlightTime()">
+          </div>
+          <div class="field-row">
+            <label class="section-label">Arrival Time (In)</label>
+            <input type="time" id="tftIn" oninput="calcTotalFlightTime()">
+          </div>
+        </div>
+        <div class="results-grid" style="margin-top:14px;">
+          <div class="result-box"><div class="r-label">Flight Time</div><div class="r-value" id="tftDecimal">—</div><div class="r-unit">DECIMAL HRS</div></div>
+          <div class="result-box"><div class="r-label">Flight Time</div><div class="r-value" id="tftHHMM">—</div><div class="r-unit">HH:MM</div></div>
+        </div>
+        <div class="formula-note" id="tftNote">▸ Flight Time = Arrival − Departure (chocks off to chocks on); crosses midnight automatically</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- ================= /POST FLIGHT SECTION ================= -->
+
+<script>
+/* ============================================================
+   PAGE 1: FUEL WEIGHT CALCULATOR
+   ============================================================ */
+const LBS_PER_GAL = 6;
+let currentFuelWeightLbs = null;
+
+function calcFuelPage() {
+  const galInput = document.getElementById('fuelGal');
+  const lbsOut = document.getElementById('fuelLbsOut');
+  const btn = document.getElementById('transferBtn');
+
+  const gal = parseFloat(galInput.value) || 0;
+  if (galInput.value) {
+    currentFuelWeightLbs = gal * LBS_PER_GAL;
+    lbsOut.textContent = currentFuelWeightLbs.toFixed(1);
+  } else {
+    currentFuelWeightLbs = null;
+    lbsOut.textContent = '—';
+  }
+
+  const active = currentFuelWeightLbs !== null && currentFuelWeightLbs > 0;
+  btn.disabled = !active;
+  btn.style.opacity = active ? '1' : '0.4';
+
+  // Live sync — push the fuel weight into the W&B fuel field automatically,
+  // no button click needed.
+  syncFuelToWB();
+}
+
+function syncFuelToWB() {
+  if (currentFuelWeightLbs === null || currentFuelWeightLbs <= 0) return;
+
+  inputs.fuel = Math.round(currentFuelWeightLbs * 10) / 10;
+
+  const fuelField = document.getElementById('inp-fuel');
+  if (fuelField) {
+    fuelField.value = inputs.fuel;
+    calculate();
+  }
+}
+
+function transferFuelToWB() {
+  syncFuelToWB();
+
+  const btn = document.getElementById('transferBtn');
+  if (currentFuelWeightLbs !== null && currentFuelWeightLbs > 0) {
+    const original = btn.textContent;
+    btn.textContent = '✓ Sent — ' + inputs.fuel + ' lbs';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  }
+
+  showPreflightCalc('calc-wb');
+}
+
+/* ============================================================
+   PAGE 2: WEIGHT & BALANCE CALCULATOR
+   ============================================================ */
+const AIRCRAFT = {
+  FBBN: { reg:'FBBN (N)', type:'C172', bew:1482.45, bem:59447.10, maxFuel:40, maxGross:2300, perfModel:'N' },
+  FIAH: { reg:'FIAH (N)', type:'C172', bew:1460.25, bem:58847.36, maxFuel:40, maxGross:2300, perfModel:'N' },
+  GYDE: { reg:'GYDE (N)', type:'C172', bew:1496.23, bem:59394.77, maxFuel:40, maxGross:2300, perfModel:'N' },
+  FRZR: { reg:'FRZR (N~)',type:'C172', bew:1476.30, bem:57876.14, maxFuel:50, maxGross:2300, perfModel:'N' },
+  GSTC: { reg:'GSTC (N*)',type:'C172', bew:1444.01, bem:57179.58, maxFuel:40, maxGross:2400, perfModel:'N' },
+  GYZA: { reg:'GYZA (N*)',type:'C172', bew:1478.91, bem:61081.87, maxFuel:50, maxGross:2400, perfModel:'N' },
+  FDAJ: { reg:'FDAJ (P)', type:'C172', bew:1525.97, bem:59732.04, maxFuel:40, maxGross:2400, perfModel:'P' },
+  FWPV: { reg:'FWPV (P)', type:'C172', bew:1527.22, bem:60054.07, maxFuel:40, maxGross:2400, perfModel:'P' },
+  GQCL: { reg:'GQCL (P)', type:'C172', bew:1536.09, bem:61120.33, maxFuel:40, maxGross:2400, perfModel:'P' },
+  GXUV: { reg:'GXUV (N)', type:'C172', bew:1475.24, bem:57112.59, maxFuel:50, maxGross:2300, perfModel:'N' },
+  FIAZ: { reg:'FIAZ (T)', type:'C182', bew:2035.81, bem:80063.11, maxFuel:87, maxGross:3100, perfModel:null },
+};
+
+const ARMS = {
+  C172: { pilot:37, rear:73, bag1:95, bag2:123, fuel:48, taxi:48 },
+  C182: { pilot:37, rear:74, bag1:97, bag2:116, fuel:48, taxi:48 },
+};
+
+let currentAC = null;
+let inputs = { pilot:0, rear:0, bag1:0, bag2:0, fuel:0, taxi:10, fuelBurn:72 };
+
+function onAircraftChange() {
+  const key = document.getElementById('aircraftSelect').value;
+  if (!key) { currentAC = null; renderEmpty(); return; }
+  currentAC = AIRCRAFT[key];
+  renderInputs();
+  calculate();
+
+  // Sync aircraft model (N/P) into the Performance page's model selector.
+  // Aircraft without a matching performance dataset (e.g. the C182) are
+  // left as-is since there's nothing to switch to.
+  if (currentAC.perfModel) {
+    syncModelToPerf(currentAC.perfModel);
+  }
+}
+
+function renderEmpty() {
+  document.getElementById('inputBody').innerHTML = '<tr><td colspan="4" style="color:var(--muted);padding:20px;text-align:center;font-size:13px;letter-spacing:1px;">SELECT AN AIRCRAFT TO BEGIN</td></tr>';
+  document.getElementById('summaryBody').innerHTML = '<tr><td colspan="4" style="color:var(--muted);padding:20px;text-align:center;font-size:13px;letter-spacing:1px;">—</td></tr>';
+  document.getElementById('acInfo').innerHTML = '';
+  document.getElementById('fuelNote').innerHTML = '';
+  ['r-zfw','r-zfw-arm','r-ramp','r-ramp-arm','r-gtow','r-cg','r-land','r-land-arm','r-max'].forEach(id => document.getElementById(id).textContent = '—');
+  const sb = document.getElementById('statusBar');
+  sb.className = 'status-bar empty';
+  sb.innerHTML = '<div class="dot"></div> AWAITING DATA';
+}
+
+function renderInputs() {
+  const ac = currentAC;
+  const a = ARMS[ac.type];
+
+  document.getElementById('acInfo').innerHTML =
+    `<div class="info-chip">BEW: <span>${ac.bew.toLocaleString()} lbs</span></div>
+     <div class="info-chip" style="margin-left:6px;">Max Gross: <span>${ac.maxGross.toLocaleString()} lbs</span></div>
+     <div class="info-chip" style="margin-left:6px;">Max Fuel: <span>${ac.maxFuel} USG</span></div>`;
+
+  const rows = [
+    { key:'pilot',   label:'Pilot & Front Seat', armKey:'pilot' },
+    { key:'rear',    label:'Rear Seats',          armKey:'rear' },
+    { key:'bag1',    label:'Baggage Area 1',      armKey:'bag1' },
+    { key:'bag2',    label:'Baggage Area 2',      armKey:'bag2' },
+    { key:'fuel',    label:'Usable Fuel',         armKey:'fuel' },
+  ];
+
+  let html = `
+    <tr style="background:#0d1117;">
+      <td class="label">Basic Empty Weight</td>
+      <td class="arm">—</td>
+      <td class="weight-display" style="text-align:right;">${ac.bew.toLocaleString()}</td>
+      <td class="moment">${ac.bem.toLocaleString()}</td>
+    </tr>`;
+
+  rows.forEach(r => {
+    html += `
+    <tr>
+      <td class="label">${r.label}</td>
+      <td class="arm">${a[r.armKey]}</td>
+      <td><input type="number" id="inp-${r.key}" min="0" step="${r.key==='fuel'?1:0.1}"
+           placeholder="0" value="${inputs[r.key]||''}"
+           oninput="inputs['${r.key}']=parseFloat(this.value)||0;calculate()"></td>
+      <td class="moment" id="mom-${r.key}">—</td>
+    </tr>`;
+  });
+
+  html += `
+    <tr style="background:#0a0f18;">
+      <td class="label" style="color:#5a7a6a;font-size:10px;">Taxi & Run-up Burn</td>
+      <td class="arm">${a.taxi}</td>
+      <td><input type="number" id="inp-taxi" min="0" step="0.1"
+           placeholder="0" value="${inputs.taxi||''}"
+           oninput="inputs['taxi']=parseFloat(this.value)||0;calculate()"></td>
+      <td class="moment" id="mom-taxi">—</td>
+    </tr>
+    <tr style="background:#0a0f18;">
+      <td class="label" style="color:#5a7a6a;font-size:10px;">Est. Fuel Burn (trip)</td>
+      <td class="arm">${a.fuel}</td>
+      <td><input type="number" id="inp-fuelBurn" min="0" step="0.1"
+           placeholder="0" value="${inputs.fuelBurn||''}"
+           oninput="inputs['fuelBurn']=parseFloat(this.value)||0;calculate()"></td>
+      <td class="moment" id="mom-fuelBurn">—</td>
+    </tr>`;
+
+  document.getElementById('inputBody').innerHTML = html;
+  document.getElementById('fuelNote').innerHTML = `<span style="color:var(--accent);">▸</span> Enter fuel in lbs (6 lbs/USG). Taxi/Burn also in lbs.`;
+}
+
+function fmt(n) { return isNaN(n) ? '—' : n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtW(n) { return isNaN(n) ? '—' : Math.round(n).toLocaleString(); }
+
+function calculate() {
+  if (!currentAC) return;
+  const ac = currentAC;
+  const a = ARMS[ac.type];
+
+  const momPilot = inputs.pilot * a.pilot;
+  const momRear  = inputs.rear  * a.rear;
+  const momBag1  = inputs.bag1  * a.bag1;
+  const momBag2  = inputs.bag2  * a.bag2;
+  const momFuel  = inputs.fuel  * a.fuel;
+  const momTaxi  = inputs.taxi  * a.taxi;
+  const momBurn  = inputs.fuelBurn * a.fuel;
+
+  const momMap = { pilot: momPilot, rear: momRear, bag1: momBag1, bag2: momBag2, fuel: momFuel, taxi: momTaxi, fuelBurn: momBurn };
+  Object.entries(momMap).forEach(([k,v]) => {
+    const el = document.getElementById('mom-'+k);
+    if (el) el.textContent = inputs[k] ? fmt(v) : '—';
+  });
+
+  const zfwW = ac.bew + inputs.pilot + inputs.rear + inputs.bag1 + inputs.bag2;
+  const zfwM = ac.bem + momPilot + momRear + momBag1 + momBag2;
+
+  const rampW = zfwW + inputs.fuel;
+  const rampM = zfwM + momFuel;
+
+  const gtowW = rampW - inputs.taxi;
+  const gtowM = rampM - momTaxi;
+
+  const landW = gtowW - inputs.fuelBurn;
+  const landM = gtowM - momBurn;
+
+  const zfwArm  = zfwW  > 0 ? zfwM  / zfwW  : null;
+  const rampArm = rampW > 0 ? rampM / rampW : null;
+  const gtowArm = gtowW > 0 ? gtowM / gtowW : null;
+  const landArm = landW > 0 ? landM / landW : null;
+
+  const summaryRows = [
+    { label:'Zero Fuel Weight (ZFW)', w: zfwW, m: zfwM, arm: zfwArm,  cls:'summary' },
+    { label:'+ Usable Fuel',          w: inputs.fuel, m: momFuel, arm: null, cls:'' },
+    { label:'Ramp Weight',            w: rampW, m: rampM, arm: rampArm, cls:'summary' },
+    { label:'− Taxi & Run-up Burn',   w: -inputs.taxi, m: -momTaxi, arm: null, cls:'' },
+    { label:'GTOW (Gross Takeoff)',   w: gtowW, m: gtowM, arm: gtowArm, cls:'summary' },
+    { label:'− Est. Fuel Burn',       w: -inputs.fuelBurn, m: -momBurn, arm: null, cls:'' },
+    { label:'Landing Weight',         w: landW, m: landM, arm: landArm, cls:'summary' },
+  ];
+
+  let html = '';
+  summaryRows.forEach(r => {
+    const overMax = (r.cls==='summary') && r.w > ac.maxGross;
+    const armStr = r.arm !== null ? r.arm.toFixed(2) : '—';
+    html += `<tr class="${r.cls}${overMax?' warning':''}">
+      <td class="label">${r.label}</td>
+      <td style="text-align:right;font-family:'Share Tech Mono',monospace;${overMax?'color:var(--red)':''}">${fmtW(Math.abs(r.w))}</td>
+      <td style="text-align:center;font-family:'Share Tech Mono',monospace;color:${r.arm!==null?'var(--accent)':'var(--muted)'}">${armStr}</td>
+      <td style="text-align:right;font-family:'Share Tech Mono',monospace;color:var(--accent)">${fmt(Math.abs(r.m))}</td>
+    </tr>`;
+  });
+  document.getElementById('summaryBody').innerHTML = html;
+
+  const setResult = (id, val, cls='') => {
+    const el = document.getElementById(id);
+    el.textContent = fmtW(val);
+    el.parentElement.className = 'result-box ' + cls;
+  };
+
+  const gtowOk = gtowW <= ac.maxGross;
+  const landOk = landW <= ac.maxGross;
+
+  setResult('r-zfw',  zfwW,  '');
+  setResult('r-ramp', rampW, '');
+  setResult('r-gtow', gtowW, gtowOk ? 'ok' : 'warn');
+  setResult('r-land', landW, landOk ? 'ok' : 'warn');
+  setResult('r-max',  ac.maxGross, '');
+
+  document.getElementById('r-zfw-arm').textContent  = zfwArm  !== null ? zfwArm.toFixed(2)  : '—';
+  document.getElementById('r-cg').textContent       = gtowArm !== null ? gtowArm.toFixed(2) : '—';
+  document.getElementById('r-ramp-arm').textContent = rampArm !== null ? rampArm.toFixed(2) : '—';
+  document.getElementById('r-land-arm').textContent = landArm !== null ? landArm.toFixed(2) : '—';
+
+  const hasData = inputs.pilot > 0 || inputs.fuel > 0;
+  const sb = document.getElementById('statusBar');
+  if (!hasData) {
+    sb.className = 'status-bar empty';
+    sb.innerHTML = '<div class="dot"></div> ENTER WEIGHTS ABOVE';
+  } else if (gtowOk && landOk) {
+    sb.className = 'status-bar go';
+    sb.innerHTML = '<div class="dot"></div> ✓ WEIGHT WITHIN LIMITS — GO';
+  } else {
+    sb.className = 'status-bar nogo';
+    sb.innerHTML = '<div class="dot"></div> ✗ OVER MAX GROSS WEIGHT — NO-GO';
+  }
+
+  // Live sync — push GTOW into the Performance page's takeoff weight
+  // field automatically, no button click needed.
+  if (hasData && gtowW > 0) {
+    syncGTOWToPerf(gtowW);
+  }
+}
+
+/* ============================================================
+   PAGE 3: PRESSURE ALTITUDE CALCULATOR
+   PA = Field Elevation + (29.92 - Altimeter Setting) x 1000
+   ============================================================ */
+function calcAltPage() {
+  const elevInput = document.getElementById('fieldElev');
+  const altInput = document.getElementById('altimeterSetting');
+  const out = document.getElementById('paOut');
+
+  const elev = parseFloat(elevInput.value);
+  const altSetting = parseFloat(altInput.value);
+
+  if (isNaN(elev) || isNaN(altSetting)) {
+    out.textContent = '—';
+    return;
+  }
+
+  const pa = elev + (29.92 - altSetting) * 1000;
+  out.textContent = Math.round(pa).toLocaleString();
+
+  // Live sync — push pressure altitude into the Performance page's
+  // takeoff and landing PA fields automatically, no button click needed.
+  syncPAToPerf(pa);
+}
+
+/* ============================================================
+   PAGE 4: TAKEOFF & LANDING PERFORMANCE (C172N and C172P, Short Field)
+   Source: POH Figures 5-4 (Takeoff) and 5-10 (Landing) for each model.
+   Grid axes: Pressure Altitude (ft) x Temperature (degC),
+   Takeoff additionally varies by weight (lbs).
+   Each cell: { roll, total } in feet, or null where the POH chart
+   shows "---" (combination exceeds published performance data).
+   ============================================================ */
+const PA_LEVELS = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000];
+const TEMP_LEVELS = [0, 10, 20, 30, 40];
+
+/* ---------- C172N data ---------- */
+const LANDING_TABLE_N = [
+  [{roll:495,total:1205},{roll:510,total:1235},{roll:530,total:1265},{roll:545,total:1295},{roll:565,total:1330}],
+  [{roll:510,total:1235},{roll:530,total:1265},{roll:550,total:1300},{roll:565,total:1330},{roll:585,total:1365}],
+  [{roll:530,total:1265},{roll:550,total:1300},{roll:570,total:1335},{roll:590,total:1370},{roll:610,total:1405}],
+  [{roll:550,total:1300},{roll:570,total:1335},{roll:590,total:1370},{roll:610,total:1405},{roll:630,total:1440}],
+  [{roll:570,total:1335},{roll:590,total:1370},{roll:615,total:1410},{roll:635,total:1445},{roll:655,total:1480}],
+  [{roll:590,total:1370},{roll:615,total:1415},{roll:635,total:1450},{roll:655,total:1485},{roll:680,total:1525}],
+  [{roll:615,total:1415},{roll:640,total:1455},{roll:660,total:1490},{roll:685,total:1535},{roll:705,total:1570}],
+  [{roll:640,total:1455},{roll:660,total:1495},{roll:685,total:1535},{roll:710,total:1575},{roll:730,total:1615}],
+  [{roll:665,total:1500},{roll:690,total:1540},{roll:710,total:1580},{roll:735,total:1620},{roll:760,total:1665}],
+];
+
+const TAKEOFF_WEIGHTS_N = [1900, 2100, 2300];
+const TAKEOFF_SPEEDS_N = {
+  1900: { liftoff: 47, at50: 54 },
+  2100: { liftoff: 50, at50: 56 },
+  2300: { liftoff: 52, at50: 59 },
+};
+
+const TAKEOFF_DATA_N = {
+  1900: [
+    [{roll:470,total:865},{roll:505,total:920},{roll:540,total:985},{roll:580,total:1045},{roll:620,total:1115}],
+    [{roll:515,total:940},{roll:550,total:1005},{roll:590,total:1070},{roll:635,total:1140},{roll:680,total:1215}],
+    [{roll:560,total:1025},{roll:605,total:1095},{roll:645,total:1170},{roll:695,total:1245},{roll:745,total:1330}],
+    [{roll:615,total:1115},{roll:660,total:1195},{roll:710,total:1275},{roll:760,total:1365},{roll:815,total:1455}],
+    [{roll:670,total:1220},{roll:725,total:1305},{roll:780,total:1400},{roll:835,total:1495},{roll:895,total:1595}],
+    [{roll:740,total:1340},{roll:795,total:1435},{roll:855,total:1535},{roll:920,total:1640},{roll:985,total:1755}],
+    [{roll:810,total:1470},{roll:875,total:1575},{roll:940,total:1690},{roll:1010,total:1810},{roll:1085,total:1940}],
+    [{roll:895,total:1620},{roll:965,total:1740},{roll:1035,total:1865},{roll:1115,total:2000},{roll:1195,total:2145}],
+    [{roll:985,total:1790},{roll:1065,total:1925},{roll:1145,total:2065},{roll:1230,total:2220},{roll:1320,total:2385}],
+  ],
+  2100: [
+    [{roll:585,total:1070},{roll:630,total:1140},{roll:680,total:1220},{roll:725,total:1300},{roll:780,total:1390}],
+    [{roll:640,total:1165},{roll:690,total:1245},{roll:740,total:1330},{roll:795,total:1420},{roll:850,total:1520}],
+    [{roll:700,total:1270},{roll:755,total:1360},{roll:810,total:1455},{roll:870,total:1555},{roll:935,total:1665}],
+    [{roll:770,total:1390},{roll:830,total:1490},{roll:890,total:1595},{roll:955,total:1710},{roll:1025,total:1830}],
+    [{roll:845,total:1525},{roll:910,total:1640},{roll:980,total:1755},{roll:1050,total:1880},{roll:1130,total:2015}],
+    [{roll:930,total:1680},{roll:1000,total:1805},{roll:1075,total:1935},{roll:1155,total:2075},{roll:1240,total:2230}],
+    [{roll:1025,total:1850},{roll:1100,total:1990},{roll:1185,total:2140},{roll:1275,total:2300},{roll:1370,total:2475}],
+    [{roll:1130,total:2050},{roll:1215,total:2210},{roll:1310,total:2380},{roll:1410,total:2560},{roll:1515,total:2755}],
+    [{roll:1245,total:2275},{roll:1345,total:2460},{roll:1450,total:2655},{roll:1560,total:2865},{roll:1680,total:3090}],
+  ],
+  2300: [
+    [{roll:720,total:1300},{roll:775,total:1390},{roll:835,total:1490},{roll:895,total:1590},{roll:960,total:1700}],
+    [{roll:790,total:1420},{roll:850,total:1525},{roll:915,total:1630},{roll:980,total:1745},{roll:1050,total:1865}],
+    [{roll:865,total:1555},{roll:930,total:1670},{roll:1000,total:1790},{roll:1075,total:1915},{roll:1155,total:2055}],
+    [{roll:950,total:1710},{roll:1025,total:1835},{roll:1100,total:1970},{roll:1185,total:2115},{roll:1270,total:2265}],
+    [{roll:1045,total:1880},{roll:1125,total:2025},{roll:1210,total:2175},{roll:1300,total:2335},{roll:1400,total:2510}],
+    [{roll:1150,total:2075},{roll:1240,total:2240},{roll:1335,total:2410},{roll:1435,total:2595},{roll:1540,total:2795}],
+    [{roll:1265,total:2305},{roll:1365,total:2485},{roll:1475,total:2680},{roll:1585,total:2895},{roll:1705,total:3125}],
+    [{roll:1400,total:2565},{roll:1510,total:2770},{roll:1630,total:3000},{roll:1755,total:3245},{roll:1890,total:3515}],
+    [{roll:1550,total:2870},{roll:1675,total:3110},{roll:1805,total:3375},{roll:1945,total:3670},{roll:2095,total:3990}],
+  ],
+};
+
+/* ---------- C172P data ---------- */
+const LANDING_TABLE_P = [
+  [{roll:510,total:1235},{roll:530,total:1265},{roll:550,total:1295},{roll:570,total:1325},{roll:585,total:1350}],
+  [{roll:530,total:1265},{roll:550,total:1295},{roll:570,total:1330},{roll:590,total:1360},{roll:610,total:1390}],
+  [{roll:550,total:1295},{roll:570,total:1330},{roll:590,total:1360},{roll:610,total:1390},{roll:630,total:1425}],
+  [{roll:570,total:1330},{roll:590,total:1360},{roll:615,total:1395},{roll:635,total:1430},{roll:655,total:1460}],
+  [{roll:595,total:1365},{roll:615,total:1400},{roll:635,total:1430},{roll:660,total:1470},{roll:680,total:1500}],
+  [{roll:615,total:1400},{roll:640,total:1435},{roll:660,total:1470},{roll:685,total:1510},{roll:705,total:1540}],
+  [{roll:640,total:1435},{roll:660,total:1470},{roll:685,total:1510},{roll:710,total:1550},{roll:730,total:1580}],
+  [{roll:665,total:1475},{roll:690,total:1515},{roll:710,total:1550},{roll:735,total:1590},{roll:760,total:1630}],
+  [{roll:690,total:1515},{roll:715,total:1555},{roll:740,total:1595},{roll:765,total:1635},{roll:790,total:1675}],
+];
+
+const TAKEOFF_WEIGHTS_P = [2000, 2200, 2400];
+const TAKEOFF_SPEEDS_P = {
+  2000: { liftoff: 46, at50: 51 },
+  2200: { liftoff: 49, at50: 54 },
+  2400: { liftoff: 51, at50: 56 },
+};
+
+const TAKEOFF_DATA_P = {
+  2000: [
+    [{roll:525,total:970},{roll:565,total:1035},{roll:605,total:1110},{roll:650,total:1185},{roll:695,total:1265}],
+    [{roll:570,total:1060},{roll:615,total:1135},{roll:665,total:1215},{roll:710,total:1295},{roll:765,total:1385}],
+    [{roll:625,total:1160},{roll:675,total:1240},{roll:725,total:1330},{roll:780,total:1425},{roll:840,total:1525}],
+    [{roll:690,total:1270},{roll:740,total:1365},{roll:800,total:1465},{roll:860,total:1570},{roll:920,total:1685}],
+    [{roll:755,total:1400},{roll:815,total:1500},{roll:880,total:1615},{roll:945,total:1735},{roll:1015,total:1865}],
+    [{roll:830,total:1545},{roll:900,total:1660},{roll:970,total:1790},{roll:1040,total:1925},{roll:1120,total:2070}],
+    [{roll:920,total:1710},{roll:990,total:1845},{roll:1070,total:1990},{roll:1150,total:2145},{roll:1235,total:2315}],
+    [{roll:1015,total:1900},{roll:1095,total:2055},{roll:1180,total:2225},{roll:1275,total:2405},{roll:1370,total:2605}],
+    [{roll:1125,total:2125},{roll:1215,total:2305},{roll:1310,total:2500},{roll:1410,total:2715},{roll:1520,total:2950}],
+  ],
+  2200: [
+    [{roll:650,total:1195},{roll:700,total:1280},{roll:750,total:1375},{roll:805,total:1470},{roll:865,total:1575}],
+    [{roll:710,total:1310},{roll:765,total:1405},{roll:825,total:1510},{roll:885,total:1615},{roll:950,total:1735}],
+    [{roll:780,total:1440},{roll:840,total:1545},{roll:905,total:1660},{roll:975,total:1785},{roll:1045,total:1915}],
+    [{roll:855,total:1585},{roll:925,total:1705},{roll:995,total:1835},{roll:1070,total:1975},{roll:1150,total:2130}],
+    [{roll:945,total:1750},{roll:1020,total:1890},{roll:1100,total:2040},{roll:1180,total:2200},{roll:1270,total:2375}],
+    [{roll:1040,total:1945},{roll:1125,total:2105},{roll:1210,total:2275},{roll:1305,total:2465},{roll:1405,total:2665}],
+    [{roll:1150,total:2170},{roll:1240,total:2355},{roll:1340,total:2555},{roll:1445,total:2775},{roll:1555,total:3020}],
+    [{roll:1270,total:2440},{roll:1375,total:2655},{roll:1485,total:2890},{roll:1605,total:3155},{roll:1730,total:3450}],
+    [{roll:1410,total:2760},{roll:1525,total:3015},{roll:1650,total:3305},{roll:1785,total:3630},{roll:1925,total:4005}],
+  ],
+  2400: [
+    [{roll:795,total:1460},{roll:860,total:1570},{roll:925,total:1685},{roll:995,total:1810},{roll:1065,total:1945}],
+    [{roll:875,total:1605},{roll:940,total:1725},{roll:1015,total:1860},{roll:1090,total:2000},{roll:1170,total:2155}],
+    [{roll:960,total:1770},{roll:1035,total:1910},{roll:1115,total:2060},{roll:1200,total:2220},{roll:1290,total:2395}],
+    [{roll:1055,total:1960},{roll:1140,total:2120},{roll:1230,total:2295},{roll:1325,total:2480},{roll:1425,total:2685}],
+    [{roll:1165,total:2185},{roll:1260,total:2365},{roll:1355,total:2570},{roll:1465,total:2790},{roll:1575,total:3030}],
+    [{roll:1285,total:2445},{roll:1390,total:2660},{roll:1500,total:2895},{roll:1620,total:3160},{roll:1745,total:3455}],
+    [{roll:1425,total:2755},{roll:1540,total:3015},{roll:1665,total:3300},{roll:1800,total:3620},{roll:1940,total:3990}],
+    [{roll:1580,total:3140},{roll:1710,total:3450},{roll:1850,total:3805},{roll:2000,total:4220},null],
+    [{roll:1755,total:3615},{roll:1905,total:4015},{roll:2060,total:4480},null,null],
+  ],
+};
+
+const PERF = {
+  N: {
+    label: 'C172N',
+    landing: {
+      table: LANDING_TABLE_N,
+      speed: 60,
+      weightLbs: 2300,
+      note: '▸ Flaps 40° · Power Off · Max Braking · 2300 LBS · POH Fig 5-10',
+    },
+    takeoff: {
+      weights: TAKEOFF_WEIGHTS_N,
+      speeds: TAKEOFF_SPEEDS_N,
+      data: TAKEOFF_DATA_N,
+      note: '▸ Flaps Up · Full Throttle Prior to Brake Release · POH Fig 5-4',
+    },
+  },
+  P: {
+    label: 'C172P',
+    landing: {
+      table: LANDING_TABLE_P,
+      speed: 61,
+      weightLbs: 2400,
+      note: '▸ Flaps 30° · Power Off · Max Braking · 2400 LBS · POH Fig 5-10',
+    },
+    takeoff: {
+      weights: TAKEOFF_WEIGHTS_P,
+      speeds: TAKEOFF_SPEEDS_P,
+      data: TAKEOFF_DATA_P,
+      note: '▸ Flaps 10° · Full Throttle Prior to Brake Release · Lean above 3000ft · POH Fig 5-4',
+    },
+  },
+};
+
+// Returns {i0, i1, t, clamped} — bracketing indices and interpolation
+// fraction for `val` within `levels`. Clamps (flat) outside chart range
+// rather than extrapolating beyond validated POH data.
+function bracket(levels, val) {
+  const n = levels.length;
+  if (val <= levels[0]) return { i0: 0, i1: 0, t: 0, clamped: val < levels[0] };
+  if (val >= levels[n - 1]) return { i0: n - 1, i1: n - 1, t: 0, clamped: val > levels[n - 1] };
+  for (let i = 0; i < n - 1; i++) {
+    if (val >= levels[i] && val <= levels[i + 1]) {
+      const t = (val - levels[i]) / (levels[i + 1] - levels[i]);
+      return { i0: i, i1: i + 1, t, clamped: false };
+    }
+  }
+}
+
+// Bilinear interpolation of a PA x Temp grid table. If any of the four
+// surrounding corners is null (POH shows "---"), the result is marked
+// outOfChart rather than computed from partial/missing data.
+function interpTable(table, pa, temp) {
+  const pb = bracket(PA_LEVELS, pa);
+  const tb = bracket(TEMP_LEVELS, temp);
+  const c00 = table[pb.i0][tb.i0];
+  const c01 = table[pb.i0][tb.i1];
+  const c10 = table[pb.i1][tb.i0];
+  const c11 = table[pb.i1][tb.i1];
+
+  if (!c00 || !c01 || !c10 || !c11) {
+    return { roll: null, total: null, clampedPA: pb.clamped, clampedTemp: tb.clamped, outOfChart: true };
+  }
+
+  const rollTop = c00.roll + (c01.roll - c00.roll) * tb.t;
+  const rollBot = c10.roll + (c11.roll - c10.roll) * tb.t;
+  const roll = rollTop + (rollBot - rollTop) * pb.t;
+
+  const totalTop = c00.total + (c01.total - c00.total) * tb.t;
+  const totalBot = c10.total + (c11.total - c10.total) * tb.t;
+  const total = totalTop + (totalBot - totalTop) * pb.t;
+
+  return { roll, total, clampedPA: pb.clamped, clampedTemp: tb.clamped, outOfChart: false };
+}
+
+function interpLanding(model, pa, temp) {
+  return interpTable(PERF[model].landing.table, pa, temp);
+}
+
+// Trilinear: interpolate PA/Temp at each bracketing weight, then
+// interpolate between those two results across weight.
+function interpTakeoff(model, weight, pa, temp) {
+  const cfg = PERF[model].takeoff;
+  const wb = bracket(cfg.weights, weight);
+  const w0 = cfg.weights[wb.i0];
+  const w1 = cfg.weights[wb.i1];
+
+  const r0 = interpTable(cfg.data[w0], pa, temp);
+  const r1 = interpTable(cfg.data[w1], pa, temp);
+
+  const s0 = cfg.speeds[w0];
+  const s1 = cfg.speeds[w1];
+  const liftoff = s0.liftoff + (s1.liftoff - s0.liftoff) * wb.t;
+  const at50 = s0.at50 + (s1.at50 - s0.at50) * wb.t;
+
+  if (r0.outOfChart || r1.outOfChart) {
+    return {
+      roll: null, total: null, liftoff, at50,
+      clampedPA: r0.clampedPA, clampedTemp: r0.clampedTemp, clampedWeight: wb.clamped,
+      outOfChart: true,
+    };
+  }
+
+  const roll = r0.roll + (r1.roll - r0.roll) * wb.t;
+  const total = r0.total + (r1.total - r0.total) * wb.t;
+
+  return {
+    roll, total, liftoff, at50,
+    clampedPA: r0.clampedPA, clampedTemp: r0.clampedTemp, clampedWeight: wb.clamped,
+    outOfChart: false,
+  };
+}
+
+// Wind note (both charts): decrease 10% per 9kt headwind;
+// increase 10% per 2kt tailwind, up to 10kt tailwind.
+function applyWind(roll, total, windKt) {
+  let factor = 1;
+  if (windKt > 0) {
+    factor = 1 - 0.10 * (windKt / 9);
+  } else if (windKt < 0) {
+    const tail = Math.min(Math.abs(windKt), 10);
+    factor = 1 + 0.10 * (tail / 2);
+  }
+  return { roll: roll * factor, total: total * factor };
+}
+
+// Grass runway note: increase distances by a fixed % of the (wind-corrected)
+// ground roll figure, added to both ground roll and total distance.
+function applyGrass(roll, total, surface, pct) {
+  if (surface !== 'grass') return { roll, total };
+  const add = pct * roll;
+  return { roll: roll + add, total: total + add };
+}
+
+function setPerfNote(elId, messages) {
+  const el = document.getElementById(elId);
+  if (messages.length) {
+    el.textContent = '⚠ ' + messages.join(' · ');
+    el.classList.add('warn');
+  } else {
+    el.textContent = el.dataset.default;
+    el.classList.remove('warn');
+  }
+}
+
+function currentPerfModel() {
+  return document.getElementById('perfModel').value;
+}
+
+// Live sync from the W&B page — pushes GTOW into the Performance
+// page's takeoff weight field and recalculates if a value is present.
+function syncGTOWToPerf(gtow) {
+  const el = document.getElementById('toWeight');
+  if (!el) return;
+  el.value = Math.round(gtow);
+  calcTakeoff();
+}
+
+// Live sync from the W&B page — selects the matching aircraft model
+// (N/P) on the Performance page so takeoff/landing use the right chart.
+function syncModelToPerf(model) {
+  const el = document.getElementById('perfModel');
+  if (!el || el.value === model) return;
+  el.value = model;
+  onPerfModelChange();
+}
+
+// Live sync from the Pressure Altitude page — pushes PA into both the
+// takeoff and landing PA fields on the Performance page.
+function syncPAToPerf(pa) {
+  const toEl = document.getElementById('toPA');
+  const ldEl = document.getElementById('ldPA');
+  if (toEl) toEl.value = Math.round(pa);
+  if (ldEl) ldEl.value = Math.round(pa);
+  calcTakeoff();
+  calcLanding();
+}
+
+function onPerfModelChange() {
+  const model = currentPerfModel();
+  const cfg = PERF[model];
+
+  document.getElementById('perfSubtitle').textContent = cfg.label + ' · SHORT FIELD TECHNIQUE';
+
+  const toWeightInput = document.getElementById('toWeight');
+  const wMin = cfg.takeoff.weights[0];
+  const wMax = cfg.takeoff.weights[cfg.takeoff.weights.length - 1];
+  toWeightInput.min = wMin;
+  toWeightInput.max = wMax;
+  toWeightInput.placeholder = wMin + ' – ' + wMax;
+
+  document.getElementById('toNote').dataset.default = cfg.takeoff.note;
+  document.getElementById('ldNote').dataset.default = cfg.landing.note;
+
+  calcTakeoff();
+  calcLanding();
+}
+
+function calcTakeoff() {
+  const model = currentPerfModel();
+  const weight = parseFloat(document.getElementById('toWeight').value);
+  const pa = parseFloat(document.getElementById('toPA').value);
+  const temp = parseFloat(document.getElementById('toTemp').value);
+  const wind = parseFloat(document.getElementById('toWind').value) || 0;
+  const surface = document.getElementById('toSurface').value;
+
+  const noteEl = document.getElementById('toNote');
+  if (!noteEl.dataset.default) noteEl.dataset.default = PERF[model].takeoff.note;
+
+  if (isNaN(weight) || isNaN(pa) || isNaN(temp)) {
+    ['toRoll','toTotal'].forEach(id => document.getElementById(id).textContent = '—');
+    setPerfNote('toNote', []);
+    return;
+  }
+
+  const r = interpTakeoff(model, weight, pa, temp);
+
+  const warnings = [];
+  const wMin = PERF[model].takeoff.weights[0];
+  const wMax = PERF[model].takeoff.weights[PERF[model].takeoff.weights.length - 1];
+  if (r.clampedWeight) warnings.push(`WEIGHT OUTSIDE ${wMin}–${wMax} LBS CHART RANGE`);
+  if (r.clampedPA) warnings.push('PA OUTSIDE 0–8000 FT CHART RANGE');
+  if (r.clampedTemp) warnings.push('TEMP OUTSIDE 0–40°C CHART RANGE');
+
+  if (r.outOfChart) {
+    document.getElementById('toRoll').textContent = 'N/A';
+    document.getElementById('toTotal').textContent = 'N/A';
+    warnings.push('EXCEEDS PUBLISHED PERFORMANCE DATA FOR THIS WEIGHT/ALTITUDE/TEMP');
+    setPerfNote('toNote', warnings);
+    return;
+  }
+
+  let { roll, total } = applyWind(r.roll, r.total, wind);
+  ({ roll, total } = applyGrass(roll, total, surface, 0.15));
+
+  document.getElementById('toRoll').textContent = Math.round(roll).toLocaleString();
+  document.getElementById('toTotal').textContent = Math.round(total).toLocaleString();
+  setPerfNote('toNote', warnings);
+}
+
+function calcLanding() {
+  const model = currentPerfModel();
+  const pa = parseFloat(document.getElementById('ldPA').value);
+  const temp = parseFloat(document.getElementById('ldTemp').value);
+  const wind = parseFloat(document.getElementById('ldWind').value) || 0;
+  const surface = document.getElementById('ldSurface').value;
+
+  const noteEl = document.getElementById('ldNote');
+  if (!noteEl.dataset.default) noteEl.dataset.default = PERF[model].landing.note;
+
+  if (isNaN(pa) || isNaN(temp)) {
+    ['ldRoll','ldTotal'].forEach(id => document.getElementById(id).textContent = '—');
+    setPerfNote('ldNote', []);
+    return;
+  }
+
+  const r = interpLanding(model, pa, temp);
+  const warnings = [];
+  if (r.clampedPA) warnings.push('PA OUTSIDE 0–8000 FT CHART RANGE');
+  if (r.clampedTemp) warnings.push('TEMP OUTSIDE 0–40°C CHART RANGE');
+
+  if (r.outOfChart) {
+    document.getElementById('ldRoll').textContent = 'N/A';
+    document.getElementById('ldTotal').textContent = 'N/A';
+    warnings.push('EXCEEDS PUBLISHED PERFORMANCE DATA');
+    setPerfNote('ldNote', warnings);
+    return;
+  }
+
+  let { roll, total } = applyWind(r.roll, r.total, wind);
+  ({ roll, total } = applyGrass(roll, total, surface, 0.45));
+
+  document.getElementById('ldRoll').textContent = Math.round(roll).toLocaleString();
+  document.getElementById('ldTotal').textContent = Math.round(total).toLocaleString();
+  setPerfNote('ldNote', warnings);
+}
+
+// Initialize defaults for the currently selected model on load.
+onPerfModelChange();
+
+/* ============================================================
+   TOP-LEVEL NAVIGATION: Home / Pre Flight / En Route / Post Flight
+   ============================================================ */
+function showHome() {
+  document.getElementById('homeScreen').style.display = 'flex';
+  document.getElementById('preflightSection').classList.remove('active');
+  document.getElementById('enrouteSection').classList.remove('active');
+  document.getElementById('postflightSection').classList.remove('active');
+}
+
+function showSection(name) {
+  document.getElementById('homeScreen').style.display = 'none';
+  document.getElementById('preflightSection').classList.toggle('active', name === 'preflight');
+  document.getElementById('enrouteSection').classList.toggle('active', name === 'enroute');
+  document.getElementById('postflightSection').classList.toggle('active', name === 'postflight');
+  if (name === 'preflight') {
+    showPreflightMenu();
+  } else if (name === 'enroute') {
+    showEnrouteMenu();
+  } else if (name === 'postflight') {
+    showPostflightMenu();
+  }
+}
+
+function showPreflightMenu() {
+  document.getElementById('preflightMenu').style.display = 'flex';
+  document.getElementById('preflightBack').style.display = 'none';
+  document.getElementById('preflightHomeBtn').style.display = 'inline-block';
+  document.querySelectorAll('#preflightSection .enroute-calc').forEach(el => el.classList.remove('active'));
+}
+
+function showPreflightCalc(id) {
+  document.getElementById('preflightMenu').style.display = 'none';
+  document.getElementById('preflightBack').style.display = 'inline-block';
+  document.getElementById('preflightHomeBtn').style.display = 'none';
+  document.querySelectorAll('#preflightSection .enroute-calc').forEach(el => el.classList.toggle('active', el.id === id));
+}
+
+function showEnrouteMenu() {
+  document.getElementById('enrouteMenu').style.display = 'flex';
+  document.getElementById('enrouteBack').style.display = 'none';
+  document.getElementById('enrouteHomeBtn').style.display = 'inline-block';
+  document.querySelectorAll('#enrouteSection .enroute-calc').forEach(el => el.classList.remove('active'));
+}
+
+function showEnrouteCalc(id) {
+  document.getElementById('enrouteMenu').style.display = 'none';
+  document.getElementById('enrouteBack').style.display = 'inline-block';
+  document.getElementById('enrouteHomeBtn').style.display = 'none';
+  document.querySelectorAll('#enrouteSection .enroute-calc').forEach(el => el.classList.toggle('active', el.id === id));
+}
+
+function showPostflightMenu() {
+  document.getElementById('postflightMenu').style.display = 'flex';
+  document.getElementById('postflightBack').style.display = 'none';
+  document.getElementById('postflightHomeBtn').style.display = 'inline-block';
+  document.querySelectorAll('#postflightSection .enroute-calc').forEach(el => el.classList.remove('active'));
+}
+
+function showPostflightCalc(id) {
+  document.getElementById('postflightMenu').style.display = 'none';
+  document.getElementById('postflightBack').style.display = 'inline-block';
+  document.getElementById('postflightHomeBtn').style.display = 'none';
+  document.querySelectorAll('#postflightSection .enroute-calc').forEach(el => el.classList.toggle('active', el.id === id));
+}
+
+/* ============================================================
+   EN ROUTE 1: TIME-SPEED-DISTANCE
+   Distance (nm) = Speed (kt) × Time (hr)
+   ============================================================ */
+let tsdMode = 'time';
+
+function setTsdMode(mode) {
+  tsdMode = mode;
+  document.querySelectorAll('#tsdMode .mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+
+  const rows = {
+    distance: document.getElementById('tsdDistanceRow'),
+    speed: document.getElementById('tsdSpeedRow'),
+    time: document.getElementById('tsdTimeRow'),
+  };
+  Object.keys(rows).forEach(k => { rows[k].style.display = (k === mode) ? 'none' : 'flex'; });
+
+  const labels = { time: ['Time', 'MIN'], distance: ['Distance', 'NM'], speed: ['Speed', 'KT'] };
+  document.getElementById('tsdResultLabel').textContent = labels[mode][0];
+  document.getElementById('tsdResultUnit').textContent = labels[mode][1];
+
+  calcTSD();
+}
+
+function calcTSD() {
+  const d = parseFloat(document.getElementById('tsdDistance').value);
+  const s = parseFloat(document.getElementById('tsdSpeed').value);
+  const t = parseFloat(document.getElementById('tsdTime').value);
+  const out = document.getElementById('tsdResult');
+
+  if (tsdMode === 'time') {
+    if (isNaN(d) || isNaN(s) || s === 0) { out.textContent = '—'; return; }
+    out.textContent = ((d / s) * 60).toFixed(1);
+  } else if (tsdMode === 'distance') {
+    if (isNaN(s) || isNaN(t)) { out.textContent = '—'; return; }
+    out.textContent = (s * (t / 60)).toFixed(1);
+  } else if (tsdMode === 'speed') {
+    if (isNaN(d) || isNaN(t) || t === 0) { out.textContent = '—'; return; }
+    out.textContent = (d / (t / 60)).toFixed(1);
+  }
+}
+
+/* ============================================================
+   EN ROUTE 2: FUEL PLANNING
+   ============================================================ */
+function hoursToHHMM(hrs) {
+  const totalMin = Math.round(hrs * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h + ':' + String(m).padStart(2, '0');
+}
+
+function calcFuelPlanning() {
+  const dist = parseFloat(document.getElementById('fpDistance').value);
+  const gs = parseFloat(document.getElementById('fpGS').value);
+  const burn = parseFloat(document.getElementById('fpBurn').value);
+  const onBoard = parseFloat(document.getElementById('fpOnBoard').value);
+
+  const timeEl = document.getElementById('fpTime');
+  const reqEl = document.getElementById('fpRequired');
+  const endEl = document.getElementById('fpEndurance');
+  const remEl = document.getElementById('fpRemaining');
+  const noteEl = document.getElementById('fpNote');
+
+  if (isNaN(dist) || isNaN(gs) || gs === 0) {
+    timeEl.textContent = '—'; reqEl.textContent = '—';
+  } else {
+    const timeHrs = dist / gs;
+    timeEl.textContent = hoursToHHMM(timeHrs);
+    if (!isNaN(burn)) {
+      reqEl.textContent = (timeHrs * burn).toFixed(1);
+    } else {
+      reqEl.textContent = '—';
+    }
+  }
+
+  if (!isNaN(onBoard) && !isNaN(burn) && burn > 0) {
+    endEl.textContent = hoursToHHMM(onBoard / burn);
+  } else {
+    endEl.textContent = '—';
+  }
+
+  if (!isNaN(onBoard) && !isNaN(dist) && !isNaN(gs) && gs !== 0 && !isNaN(burn)) {
+    const required = (dist / gs) * burn;
+    const remaining = onBoard - required;
+    remEl.textContent = remaining.toFixed(1);
+    if (remaining < 0) {
+      noteEl.textContent = '⚠ FUEL ON BOARD INSUFFICIENT FOR THIS DISTANCE';
+      noteEl.classList.add('warn');
+    } else {
+      noteEl.textContent = '▸ Fuel Required = Time × Burn Rate — verify against required reserves';
+      noteEl.classList.remove('warn');
+    }
+  } else {
+    remEl.textContent = '—';
+    noteEl.textContent = '▸ Fuel Required = Time × Burn Rate';
+    noteEl.classList.remove('warn');
+  }
+}
+
+/* ============================================================
+   EN ROUTE 3: TRUE AIRSPEED
+   DA computed from PA/OAT, then TAS ≈ CAS × (1 + 2%/1000ft DA)
+   (standard ground-school rule of thumb)
+   ============================================================ */
+function computeDensityAltitude(pa, oat) {
+  const isaTemp = 15 - (2 * (pa / 1000));
+  return pa + (120 * (oat - isaTemp));
+}
+
+function calcTAS() {
+  const cas = parseFloat(document.getElementById('tasCAS').value);
+  const pa = parseFloat(document.getElementById('tasPA').value);
+  const oat = parseFloat(document.getElementById('tasOAT').value);
+  const resultEl = document.getElementById('tasResult');
+  const daEl = document.getElementById('tasDA');
+
+  if (isNaN(cas) || isNaN(pa) || isNaN(oat)) {
+    resultEl.textContent = '—';
+    daEl.textContent = '—';
+    return;
+  }
+
+  const da = computeDensityAltitude(pa, oat);
+  const tas = cas * (1 + 0.02 * (da / 1000));
+
+  daEl.textContent = Math.round(da).toLocaleString();
+  resultEl.textContent = tas.toFixed(1);
+}
+
+/* ============================================================
+   EN ROUTE 4: WIND CORRECTION
+   WCA = asin[(WS/TAS) × sin(WD − TC)]
+   TH  = TC + WCA
+   GS  = TAS × cos(WCA) − WS × cos(WD − TC)
+   ============================================================ */
+function calcWindCorrection() {
+  const tc = parseFloat(document.getElementById('wcTC').value);
+  const tas = parseFloat(document.getElementById('wcTAS').value);
+  const wd = parseFloat(document.getElementById('wcWD').value);
+  const ws = parseFloat(document.getElementById('wcWS').value);
+
+  const wcaEl = document.getElementById('wcWCA');
+  const thEl = document.getElementById('wcTH');
+  const gsEl = document.getElementById('wcGS');
+  const noteEl = document.getElementById('wcNote');
+
+  if (isNaN(tc) || isNaN(tas) || isNaN(wd) || isNaN(ws) || tas === 0) {
+    wcaEl.textContent = '—'; thEl.textContent = '—'; gsEl.textContent = '—';
+    return;
+  }
+
+  const deltaDeg = wd - tc;
+  const deltaRad = deltaDeg * Math.PI / 180;
+  const sinArg = (ws / tas) * Math.sin(deltaRad);
+
+  if (Math.abs(sinArg) > 1) {
+    wcaEl.textContent = 'N/A'; thEl.textContent = 'N/A'; gsEl.textContent = 'N/A';
+    noteEl.textContent = '⚠ WIND SPEED EXCEEDS TAS — NO VALID HEADING CAN HOLD COURSE';
+    noteEl.classList.add('warn');
+    return;
+  }
+
+  const wcaRad = Math.asin(sinArg);
+  const wcaDeg = wcaRad * 180 / Math.PI;
+  let th = tc + wcaDeg;
+  th = ((th % 360) + 360) % 360;
+
+  const gs = tas * Math.cos(wcaRad) - ws * Math.cos(deltaRad);
+
+  const side = wcaDeg > 0 ? 'R' : wcaDeg < 0 ? 'L' : '';
+  wcaEl.textContent = Math.abs(wcaDeg).toFixed(1) + (side ? ' ' + side : '');
+  thEl.textContent = Math.round(th).toString().padStart(3, '0');
+  gsEl.textContent = Math.round(gs).toLocaleString();
+  noteEl.textContent = '▸ WCA = asin[(Wind Speed / TAS) × sin(WD − TC)]';
+  noteEl.classList.remove('warn');
+}
+
+/* ============================================================
+   EN ROUTE 5: DENSITY ALTITUDE
+   DA = PA + [120 × (OAT − ISA Temp)], ISA Temp = 15 − 2×(PA/1000)
+   ============================================================ */
+function calcDensityAlt() {
+  const pa = parseFloat(document.getElementById('daPA').value);
+  const oat = parseFloat(document.getElementById('daOAT').value);
+  const out = document.getElementById('daResult');
+
+  if (isNaN(pa) || isNaN(oat)) { out.textContent = '—'; return; }
+
+  const da = computeDensityAltitude(pa, oat);
+  out.textContent = Math.round(da).toLocaleString();
+}
+
+/* ============================================================
+   EN ROUTE 6: ALTITUDE CONVERSIONS
+   1 ft = 0.3048 m
+   ============================================================ */
+const FT_PER_M = 1 / 0.3048;
+
+function calcAltConv(source) {
+  const feetInput = document.getElementById('altFeet');
+  const metersInput = document.getElementById('altMeters');
+  const flOut = document.getElementById('altFL');
+
+  let feet;
+  if (source === 'feet') {
+    feet = parseFloat(feetInput.value);
+    if (!isNaN(feet)) {
+      metersInput.value = (feet * 0.3048).toFixed(1);
+    } else {
+      metersInput.value = '';
+    }
+  } else {
+    const meters = parseFloat(metersInput.value);
+    if (!isNaN(meters)) {
+      feet = meters * FT_PER_M;
+      feetInput.value = Math.round(feet);
+    } else {
+      feetInput.value = '';
+    }
+  }
+
+  feet = parseFloat(feetInput.value);
+  flOut.textContent = !isNaN(feet) ? Math.round(feet / 100).toString().padStart(3, '0') : '—';
+}
+
+/* ============================================================
+   EN ROUTE 7: UNIT CONVERSIONS
+   ============================================================ */
+const UNIT_CATEGORIES = {
+  distance: {
+    units: { nm: 'Nautical Miles', sm: 'Statute Miles', km: 'Kilometers', m: 'Meters' },
+    toBase: { nm: 1852, sm: 1609.344, km: 1000, m: 1 }, // base unit: meters
+  },
+  speed: {
+    units: { kt: 'Knots', mph: 'MPH', kmh: 'km/h', ms: 'm/s' },
+    toBase: { kt: 0.514444, mph: 0.44704, kmh: 0.277778, ms: 1 }, // base: m/s
+  },
+  weight: {
+    units: { lbs: 'Pounds', kg: 'Kilograms' },
+    toBase: { lbs: 0.453592, kg: 1 }, // base: kg
+  },
+  volume: {
+    units: { usgal: 'US Gallons', impgal: 'Imperial Gallons', liters: 'Liters' },
+    toBase: { usgal: 3.785412, impgal: 4.546092, liters: 1 }, // base: liters
+  },
+  temp: {
+    units: { c: 'Celsius', f: 'Fahrenheit' },
+    special: true,
+  },
+};
+
+function populateUnitDropdowns() {
+  const category = document.getElementById('ucCategory').value;
+  const cfg = UNIT_CATEGORIES[category];
+  const fromSel = document.getElementById('ucFromUnit');
+  const toSel = document.getElementById('ucToUnit');
+
+  const options = Object.entries(cfg.units).map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
+  fromSel.innerHTML = options;
+  toSel.innerHTML = options;
+
+  const keys = Object.keys(cfg.units);
+  fromSel.value = keys[0];
+  toSel.value = keys.length > 1 ? keys[1] : keys[0];
+}
+
+function onUnitCategoryChange() {
+  populateUnitDropdowns();
+  calcUnitConv();
+}
+
+function convertUnit(category, value, fromUnit, toUnit) {
+  const cfg = UNIT_CATEGORIES[category];
+  if (cfg.special && category === 'temp') {
+    if (fromUnit === toUnit) return value;
+    if (fromUnit === 'c' && toUnit === 'f') return value * 9 / 5 + 32;
+    if (fromUnit === 'f' && toUnit === 'c') return (value - 32) * 5 / 9;
+    return value;
+  }
+  const base = value * cfg.toBase[fromUnit];
+  return base / cfg.toBase[toUnit];
+}
+
+function calcUnitConv() {
+  const category = document.getElementById('ucCategory').value;
+  const fromVal = parseFloat(document.getElementById('ucFromValue').value);
+  const fromUnit = document.getElementById('ucFromUnit').value;
+  const toUnit = document.getElementById('ucToUnit').value;
+  const resultEl = document.getElementById('ucResult');
+  const unitEl = document.getElementById('ucResultUnit');
+
+  unitEl.textContent = UNIT_CATEGORIES[category].units[toUnit] || '';
+
+  if (isNaN(fromVal)) { resultEl.textContent = '—'; return; }
+
+  const result = convertUnit(category, fromVal, fromUnit, toUnit);
+  resultEl.textContent = result.toLocaleString(undefined, { maximumFractionDigits: 3 });
+}
+
+function swapUnitConv() {
+  const fromSel = document.getElementById('ucFromUnit');
+  const toSel = document.getElementById('ucToUnit');
+  const tmp = fromSel.value;
+  fromSel.value = toSel.value;
+  toSel.value = tmp;
+  calcUnitConv();
+}
+
+/* ============================================================
+   EN ROUTE 8: OFF-COURSE CORRECTION (1-in-60 rule)
+   Correction° ≈ 60 × (Error ÷ Distance)
+   ============================================================ */
+function calcOffCourse() {
+  const flown = parseFloat(document.getElementById('ocFlown').value);
+  const error = parseFloat(document.getElementById('ocError').value);
+  const remaining = parseFloat(document.getElementById('ocRemaining').value);
+  const heading = parseFloat(document.getElementById('ocHeading').value);
+
+  const parallelEl = document.getElementById('ocParallel');
+  const convergeEl = document.getElementById('ocConverge');
+  const totalEl = document.getElementById('ocTotal');
+  const newHeadingEl = document.getElementById('ocNewHeading');
+
+  if (isNaN(flown) || isNaN(error) || flown === 0) {
+    parallelEl.textContent = '—'; convergeEl.textContent = '—';
+    totalEl.textContent = '—'; newHeadingEl.textContent = '—';
+    return;
+  }
+
+  const toParallel = 60 * (error / flown);
+  parallelEl.textContent = toParallel.toFixed(1);
+
+  let toConverge = null;
+  if (!isNaN(remaining) && remaining > 0) {
+    toConverge = 60 * (error / remaining);
+    convergeEl.textContent = toConverge.toFixed(1);
+  } else {
+    convergeEl.textContent = '—';
+  }
+
+  const total = toParallel + (toConverge !== null ? toConverge : 0);
+  totalEl.textContent = total.toFixed(1);
+
+  if (!isNaN(heading)) {
+    // Correction direction: if off-course to the right of course (positive
+    // error, by convention), turn left (subtract) to converge; this tool
+    // takes error as an unsigned magnitude and always corrects toward
+    // course, so the sign of the correction follows the sign the user
+    // enters for "off-course distance" (negative = left of course).
+    let newHeading = heading - total;
+    newHeading = ((newHeading % 360) + 360) % 360;
+    newHeadingEl.textContent = Math.round(newHeading).toString().padStart(3, '0');
+  } else {
+    newHeadingEl.textContent = '—';
+  }
+}
+
+// Initialize the Unit Conversions dropdowns (must run after
+// UNIT_CATEGORIES is declared above).
+populateUnitDropdowns();
+
+/* ============================================================
+   POST FLIGHT: HOBBS TIME
+   Hobbs Time = Hobbs In − Hobbs Out (both are decimal-hour meter
+   readings, so this is a straight subtraction).
+   ============================================================ */
+function calcHobbsTime() {
+  const outEl = document.getElementById('hobbsOut');
+  const inEl = document.getElementById('hobbsIn');
+  const resultEl = document.getElementById('hobbsResult');
+  const noteEl = document.getElementById('hobbsNote');
+  if (!noteEl.dataset.default) noteEl.dataset.default = noteEl.textContent;
+
+  const out = parseFloat(outEl.value);
+  const inn = parseFloat(inEl.value);
+
+  if (isNaN(out) || isNaN(inn)) {
+    resultEl.textContent = '—';
+    noteEl.textContent = noteEl.dataset.default;
+    noteEl.classList.remove('warn');
+    return;
+  }
+
+  const time = inn - out;
+  if (time < 0) {
+    resultEl.textContent = 'N/A';
+    noteEl.textContent = '⚠ HOBBS IN IS LESS THAN HOBBS OUT — CHECK YOUR READINGS';
+    noteEl.classList.add('warn');
+    return;
+  }
+
+  resultEl.textContent = time.toFixed(1);
+  noteEl.textContent = noteEl.dataset.default;
+  noteEl.classList.remove('warn');
+}
+
+/* ============================================================
+   POST FLIGHT: TOTAL FLIGHT TIME
+   Flight time = time from the aircraft first moving under its own
+   power (chocks/brakes off) to coming to rest after landing (chocks
+   on) — the standard FAA logbook definition. Entered as clock times;
+   rolls over midnight automatically if arrival < departure.
+   ============================================================ */
+function calcTotalFlightTime() {
+  const outVal = document.getElementById('tftOut').value;
+  const inVal = document.getElementById('tftIn').value;
+  const decimalEl = document.getElementById('tftDecimal');
+  const hhmmEl = document.getElementById('tftHHMM');
+  const noteEl = document.getElementById('tftNote');
+  if (!noteEl.dataset.default) noteEl.dataset.default = noteEl.textContent;
+
+  if (!outVal || !inVal) {
+    decimalEl.textContent = '—';
+    hhmmEl.textContent = '—';
+    noteEl.textContent = noteEl.dataset.default;
+    noteEl.classList.remove('warn');
+    return;
+  }
+
+  const [oh, om] = outVal.split(':').map(Number);
+  const [ih, im] = inVal.split(':').map(Number);
+  const outMin = oh * 60 + om;
+  const inMin = ih * 60 + im;
+
+  let diff = inMin - outMin;
+  let crossedMidnight = false;
+  let sameTime = false;
+  if (diff === 0) {
+    sameTime = true;
+  } else if (diff < 0) {
+    diff += 24 * 60;
+    crossedMidnight = true;
+  }
+
+  const decimalHours = diff / 60;
+  const hh = Math.floor(diff / 60);
+  const mm = diff % 60;
+
+  decimalEl.textContent = decimalHours.toFixed(1);
+  hhmmEl.textContent = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+
+  if (sameTime) {
+    noteEl.textContent = '⚠ DEPARTURE AND ARRIVAL ARE THE SAME TIME — DOUBLE-CHECK YOUR ENTRIES';
+    noteEl.classList.add('warn');
+  } else if (crossedMidnight) {
+    noteEl.textContent = '⚠ ARRIVAL IS EARLIER THAN DEPARTURE — ASSUMED FLIGHT CROSSED MIDNIGHT';
+    noteEl.classList.add('warn');
+  } else {
+    noteEl.textContent = noteEl.dataset.default;
+    noteEl.classList.remove('warn');
+  }
+}
+</script>
+</body>
+</html>
